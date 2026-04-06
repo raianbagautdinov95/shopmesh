@@ -1,0 +1,337 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-shopmesh}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shopmesh}
+      POSTGRES_DB: ${POSTGRES_DB:-shopmesh}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+    restart: unless-stopped
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: deploy/docker/auth.Dockerfile
+    env_file:
+      - ./services/auth-service/.env.example
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-shopmesh}:${POSTGRES_PASSWORD:-shopmesh}@postgres:5432/${POSTGRES_DB:-shopmesh}
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      JWT_SECRET: ${JWT_SECRET:-change-me}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-60}
+    ports:
+      - "${AUTH_SERVICE_PORT:-8001}:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/api/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+
+  user-service:
+    build:
+      context: .
+      dockerfile: deploy/docker/user.Dockerfile
+    env_file:
+      - ./services/user-service/.env.example
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-shopmesh}:${POSTGRES_PASSWORD:-shopmesh}@postgres:5432/${POSTGRES_DB:-shopmesh}
+      JWT_SECRET: ${JWT_SECRET:-change-me}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+    ports:
+      - "${USER_SERVICE_PORT:-8002}:8002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/api/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+
+  catalog-service:
+    build:
+      context: .
+      dockerfile: deploy/docker/catalog.Dockerfile
+    env_file:
+      - ./services/catalog-service/.env.example
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-shopmesh}:${POSTGRES_PASSWORD:-shopmesh}@postgres:5432/${POSTGRES_DB:-shopmesh}
+      JWT_SECRET: ${JWT_SECRET:-change-me}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+    ports:
+      - "${CATALOG_SERVICE_PORT:-8003}:8003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8003/api/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+
+  cart-service:
+    build:
+      context: .
+      dockerfile: deploy/docker/cart.Dockerfile
+    env_file:
+      - ./services/cart-service/.env.example
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-shopmesh}:${POSTGRES_PASSWORD:-shopmesh}@postgres:5432/${POSTGRES_DB:-shopmesh}
+      JWT_SECRET: ${JWT_SECRET:-change-me}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+    ports:
+      - "${CART_SERVICE_PORT:-8004}:8004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      catalog-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8004/api/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+
+  order-service:
+    build:
+      context: .
+      dockerfile: deploy/docker/order.Dockerfile
+    env_file:
+      - ./services/order-service/.env.example
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-shopmesh}:${POSTGRES_PASSWORD:-shopmesh}@postgres:5432/${POSTGRES_DB:-shopmesh}
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      JWT_SECRET: ${JWT_SECRET:-change-me}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+    ports:
+      - "${ORDER_SERVICE_PORT:-8005}:8005"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      cart-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8005/api/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: deploy/docker/payment.Dockerfile
+    env_file:
+      - ./services/payment-service/.env.example
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-shopmesh}:${POSTGRES_PASSWORD:-shopmesh}@postgres:5432/${POSTGRES_DB:-shopmesh}
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      JWT_SECRET: ${JWT_SECRET:-change-me}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+    ports:
+      - "${PAYMENT_SERVICE_PORT:-8006}:8006"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8006/api/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+
+  inventory-service:
+    build:
+      context: .
+      dockerfile: deploy/docker/inventory.Dockerfile
+    env_file:
+      - ./services/inventory-service/.env.example
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-shopmesh}:${POSTGRES_PASSWORD:-shopmesh}@postgres:5432/${POSTGRES_DB:-shopmesh}
+      JWT_SECRET: ${JWT_SECRET:-change-me}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+    ports:
+      - "${INVENTORY_SERVICE_PORT:-8007}:8007"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      catalog-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8007/api/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: deploy/docker/notification.Dockerfile
+    env_file:
+      - ./services/notification-service/.env.example
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-shopmesh}:${POSTGRES_PASSWORD:-shopmesh}@postgres:5432/${POSTGRES_DB:-shopmesh}
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      JWT_SECRET: ${JWT_SECRET:-change-me}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+    ports:
+      - "${NOTIFICATION_SERVICE_PORT:-8008}:8008"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8008/api/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: .
+      dockerfile: deploy/docker/gateway.Dockerfile
+    env_file:
+      - ./services/gateway/.env.example
+    environment:
+      JWT_SECRET: ${JWT_SECRET:-change-me}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      REQUEST_TIMEOUT: ${REQUEST_TIMEOUT:-10.0}
+      AUTH_SERVICE_URL: http://auth-service:8001
+      USER_SERVICE_URL: http://user-service:8002
+      CATALOG_SERVICE_URL: http://catalog-service:8003
+      CART_SERVICE_URL: http://cart-service:8004
+      ORDER_SERVICE_URL: http://order-service:8005
+      PAYMENT_SERVICE_URL: http://payment-service:8006
+      INVENTORY_SERVICE_URL: http://inventory-service:8007
+      NOTIFICATION_SERVICE_URL: http://notification-service:8008
+    ports:
+      - "${GATEWAY_PORT:-8000}:8000"
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+      catalog-service:
+        condition: service_healthy
+      cart-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+      payment-service:
+        condition: service_healthy
+      inventory-service:
+        condition: service_healthy
+      notification-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on:
+      gateway:
+        condition: service_healthy
+    ports:
+      - "${NGINX_PORT:-8080}:80"
+    volumes:
+      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      gateway:
+        condition: service_healthy
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.1.4
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    volumes:
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      prometheus:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+

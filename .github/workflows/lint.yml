@@ -1,0 +1,36 @@
+name: lint
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+
+jobs:
+  ruff:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - gateway
+          - auth-service
+          - user-service
+          - catalog-service
+          - cart-service
+          - order-service
+          - payment-service
+          - inventory-service
+          - notification-service
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          cd services/${{ matrix.service }}
+          pip install -e ".[dev]"
+      - name: Lint
+        run: |
+          cd services/${{ matrix.service }}
+          ruff check app tests
