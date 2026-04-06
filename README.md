@@ -62,6 +62,7 @@ Prometheus
 
 Grafana
   -> visualizes metrics and dashboards
+
 Tech Stack
 Backend
 FastAPI
@@ -108,7 +109,6 @@ fetch inventory
 create notification
 
 Example successful smoke result:
-
 {
   "user_email": "smoke+example@example.com",
   "product_id": 3,
@@ -120,11 +120,8 @@ Quick Start
 1. Copy environment file
 
 On Windows CMD:
-
 copy .env.example .env
-
 On PowerShell:
-
 Copy-Item .env.example .env
 2. Start the stack
 docker compose up --build -d
