@@ -1,7 +1,7 @@
 """create inventory_items table
 
 Revision ID: 0001_create_inventory_items
-Revises: None
+Revises:
 Create Date: 2026-04-06 00:00:00
 """
 from typing import Sequence, Union

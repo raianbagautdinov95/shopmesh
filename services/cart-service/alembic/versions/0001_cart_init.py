@@ -1,7 +1,7 @@
 """create carts and cart_items tables
 
 Revision ID: 0001_cart_init
-Revises: None
+Revises:
 Create Date: 2026-04-06 00:00:00
 """
 from typing import Sequence, Union
