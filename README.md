@@ -62,6 +62,7 @@ Prometheus
 
 Grafana
   -> visualizes metrics and dashboards
+```
 ## Tech Stack
 
 ### Backend
