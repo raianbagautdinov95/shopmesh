@@ -62,53 +62,51 @@ Prometheus
 
 Grafana
   -> visualizes metrics and dashboards
+## Tech Stack
 
-Tech Stack
-Backend
-FastAPI
-SQLAlchemy
-Pydantic
-Uvicorn
-Infrastructure
-PostgreSQL
-Redis
-RabbitMQ
-Docker Compose
-Nginx
-Observability
-Prometheus
-Grafana
-prometheus-fastapi-instrumentator
-Implemented Flow
+### Backend
 
-The project currently includes a working end-to-end flow that has been verified with a smoke test:
+- FastAPI
+- SQLAlchemy
+- Pydantic
+- Uvicorn
 
-User registration
-User login
-Refresh token flow
-Fetch current user profile
-List products
-Add product to cart
-Create order
-Create payment intent
-Fetch inventory
-Create notification
-Verified Smoke Test
+### Infrastructure
 
-The following flow has been executed successfully against the running stack:
+- PostgreSQL
+- Redis
+- RabbitMQ
+- Docker Compose
+- Nginx
 
-register user
-login
-refresh token
-fetch profile
-fetch products
-add item to cart
-create order
-create payment
-fetch inventory
-create notification
+### Observability
 
-Example successful smoke result:
+- Prometheus
+- Grafana
+- prometheus-fastapi-instrumentator
+
+## Implemented Flow
+
+The project includes a working end-to-end commerce flow:
+
+1. User registration
+2. User login
+3. Refresh token flow
+4. Fetch current user profile
+5. List products
+6. Add product to cart
+7. Create order
+8. Create payment intent
+9. Fetch inventory
+10. Create notification
+
+## Verified Smoke Test
+
+The full flow has been executed successfully against the running stack.
+
+Example result:
+
+```json
 {
   "user_email": "smoke+example@example.com",
   "product_id": 3,
@@ -116,42 +114,67 @@ Example successful smoke result:
   "payment_id": 5,
   "notification_id": 1
 }
-Quick Start
-1. Copy environment file
+```
 
-On Windows CMD:
+## Quick Start
+
+### 1. Copy the environment file
+
+Windows CMD:
+
+```cmd
 copy .env.example .env
-On PowerShell:
+```
+
+PowerShell:
+
+```powershell
 Copy-Item .env.example .env
-2. Start the stack
+```
+
+Linux or macOS:
+
+```bash
+cp .env.example .env
+```
+
+### 2. Start the stack
+
+```bash
 docker compose up --build -d
-3. Check running services
+```
+
+### 3. Check the running services
+
+```bash
 docker compose ps
-4. Run smoke test
+```
 
-On Windows:
+### 4. Run the smoke test
 
-python scripts\smoke_test.py
-
-On Linux/macOS:
-
+```bash
 python scripts/smoke_test.py
-Database Migrations
+```
 
-Alembic has been added for the main domain services. Each service uses its own migration environment and its own Alembic version table.
+## Database Migrations
 
-Services currently migrated
-user-service
-catalog-service
-cart-service
-order-service
-payment-service
-inventory-service
-notification-service
-Important note
+Each main domain service has its own Alembic migration environment and version table.
 
-Because multiple services use the same PostgreSQL database, each service must use its own Alembic version table, for example:
+Services with migrations:
 
+- `user-service`
+- `catalog-service`
+- `cart-service`
+- `order-service`
+- `payment-service`
+- `inventory-service`
+- `notification-service`
+
+Because several services currently share one PostgreSQL database, every service uses a separate Alembic version table.
+
+Examples:
+
+```text
 alembic_version_user_service
 alembic_version_catalog_service
 alembic_version_cart_service
@@ -159,130 +182,143 @@ alembic_version_order_service
 alembic_version_payment_service
 alembic_version_inventory_service
 alembic_version_notification_service
-Run migrations manually
+```
 
-Example pattern:
+Run migrations for a service:
 
-cd services\<service-name>
+```bash
+cd services/<service-name>
 python -m alembic upgrade head
+```
 
-Examples:
+Example:
 
-cd services\user-service
+```bash
+cd services/user-service
 python -m alembic upgrade head
-cd services\order-service
-python -m alembic upgrade head
-cd services\inventory-service
-python -m alembic upgrade head
-Check current revision
+```
+
+Check the current revision:
+
+```bash
 python -m alembic current
-Stamp an existing schema
+```
 
-If tables already exist and you want Alembic to mark the current migration as applied:
+Mark an existing schema as migrated:
 
+```bash
 python -m alembic stamp head
-Local Endpoints
-API Gateway: http://localhost:8000/docs
-Nginx: http://localhost:8080
-Auth Service: http://localhost:8001/docs
-User Service: http://localhost:8002/docs
-Catalog Service: http://localhost:8003/docs
-Cart Service: http://localhost:8004/docs
-Order Service: http://localhost:8005/docs
-Payment Service: http://localhost:8006/docs
-Inventory Service: http://localhost:8007/docs
-Notification Service: http://localhost:8008/docs
-Prometheus: http://localhost:9090
-Grafana: http://localhost:3000
-RabbitMQ Management: http://localhost:15672
-Observability
+```
 
-The project includes a basic observability stack:
+## Local Endpoints
 
-Prometheus for metrics scraping
-Grafana for dashboards
-service-level /metrics endpoints
-health endpoints for all services
-aggregated gateway status endpoint
+| Component | URL |
+|---|---|
+| API Gateway | `http://localhost:8000/docs` |
+| Nginx | `http://localhost:8080` |
+| Auth Service | `http://localhost:8001/docs` |
+| User Service | `http://localhost:8002/docs` |
+| Catalog Service | `http://localhost:8003/docs` |
+| Cart Service | `http://localhost:8004/docs` |
+| Order Service | `http://localhost:8005/docs` |
+| Payment Service | `http://localhost:8006/docs` |
+| Inventory Service | `http://localhost:8007/docs` |
+| Notification Service | `http://localhost:8008/docs` |
+| Prometheus | `http://localhost:9090` |
+| Grafana | `http://localhost:3000` |
+| RabbitMQ Management | `http://localhost:15672` |
+
+## Observability
+
+The project includes:
+
+- Prometheus metrics scraping
+- Grafana dashboards
+- service-level `/metrics` endpoints
+- health endpoints for all services
+- an aggregated gateway status endpoint
 
 Useful endpoints:
 
-Gateway health: http://localhost:8000/health
-Gateway aggregate status: http://localhost:8000/api/status
-Example Workflow
+```text
+http://localhost:8000/health
+http://localhost:8000/api/status
+```
 
-A typical local workflow looks like this:
+## Example Workflow
 
-Register a new user through the gateway
-Log in and receive access and refresh tokens
-Fetch available products
-Add an item to cart
-Create an order
-Create a payment intent
-Fetch inventory records
-Create a notification record
-Observe metrics in Prometheus and Grafana
-Useful Commands
+A typical local workflow is:
+
+1. Register a user through the gateway
+2. Log in and receive access and refresh tokens
+3. Fetch available products
+4. Add an item to the cart
+5. Create an order
+6. Create a payment intent
+7. Fetch inventory records
+8. Create a notification
+9. Observe metrics in Prometheus and Grafana
+
+## Useful Commands
+
+```bash
 docker compose up --build -d
 docker compose down -v
 docker compose ps
 docker compose logs -f
-python scripts\smoke_test.py
-Current State
+python scripts/smoke_test.py
+```
 
-This project is currently in an actively developed but working state.
+## Current State
 
-Already implemented
-microservices structure
-gateway routing
-authentication flow
-user profile flow
-catalog flow
-cart flow
-order flow
-payment flow
-inventory flow
-notification flow
-Docker-based local setup
-metrics and dashboards
-smoke-tested end-to-end scenario
-Alembic migrations for core services
-Planned next
-complete migration coverage for remaining services if needed
-stronger integration and contract tests
-improved event-driven workflows
-better error standardization
-more realistic business state transitions
-Roadmap
-Near term
-improve README visuals and architecture diagram
-improve service-level tests
-refine gateway operation IDs and docs
-Mid term
-connect order and inventory more deeply
-connect payment and notification flows through events
-add retry and idempotency patterns
-improve gateway-level error handling
-Long term
-event-driven orchestration
-distributed tracing
-advanced dashboards
-production deployment manifests
-Why This Project Matters
+The project is actively developed and has a working local end-to-end flow.
 
-This project is designed to demonstrate more than CRUD endpoints. It shows:
+### Implemented
 
-microservices decomposition by domain
-authentication and protected APIs
-gateway-based routing
-infrastructure integration
-health checks and observability
-debugging and stabilization of a full distributed local stack
-an end-to-end backend workflow instead of isolated demo endpoints
-Notes
+- microservices structure
+- API gateway routing
+- JWT authentication
+- user profile flow
+- product catalog flow
+- cart flow
+- order flow
+- payment flow
+- inventory flow
+- notification flow
+- Docker-based local environment
+- Prometheus and Grafana monitoring
+- smoke-tested end-to-end scenario
+- Alembic migrations for main services
+
+### Planned Improvements
+
+- stronger integration and contract tests
+- improved event-driven workflows
+- standardized error handling
+- retry and idempotency patterns
+- distributed tracing
+- production deployment manifests
+
+## Why This Project Matters
+
+This project demonstrates more than isolated CRUD endpoints. It shows:
+
+- domain-based microservice decomposition
+- authentication and protected APIs
+- gateway-based routing
+- database and infrastructure integration
+- health checks and observability
+- debugging of a distributed local stack
+- a complete backend commerce workflow
+
+## Notes
+
 The stack is intended for local development and portfolio demonstration.
-Some services were originally bootstrapped with lightweight schema setup and are being standardized around Alembic migrations.
-Inventory is seeded with demo data for local development and showcase purposes.
-License
 
-Add your preferred license here.
+Some services were initially bootstrapped with lightweight schema creation and are being standardized around Alembic migrations.
+
+Inventory is seeded with demonstration data.
+
+## License
+
+This project is currently provided for portfolio and educational purposes.
